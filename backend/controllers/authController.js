@@ -1,9 +1,8 @@
 const bcrypt = require('bcrypt');
 const pool = require('../db');
-const passport = require('passport'); // Add this import
+const passport = require('passport'); 
 
 const registerUser = async (req, res) => {
-    // ... (Keep your existing registerUser code exactly as it is) ...
     try {
         const { email, password } = req.body;
         const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -23,18 +22,16 @@ const registerUser = async (req, res) => {
     }
 };
 
-// --- NEW LOGIN LOGIC ---
 const loginUser = (req, res, next) => {
-    // We use a custom callback here so we can return JSON instead of redirecting pages
+
     passport.authenticate('local', (err, user, info) => {
         if (err) {
             return res.status(500).json({ error: 'Server error during login' });
         }
         if (!user) {
-            return res.status(401).json({ error: info.message }); // "Incorrect email or password"
+            return res.status(401).json({ error: info.message }); 
         }
 
-        // req.logIn is a Passport function that establishes the session
         req.logIn(user, (err) => {
             if (err) {
                 return res.status(500).json({ error: 'Session creation failed' });
@@ -47,7 +44,6 @@ const loginUser = (req, res, next) => {
     })(req, res, next);
 };
 
-// --- NEW LOGOUT LOGIC ---
 const logoutUser = (req, res) => {
     req.logout((err) => {
         if (err) return res.status(500).json({ error: 'Logout failed' });
@@ -59,5 +55,4 @@ const logoutUser = (req, res) => {
     });
 };
 
-// Make sure to export the new functions!
 module.exports = { registerUser, loginUser, logoutUser };
