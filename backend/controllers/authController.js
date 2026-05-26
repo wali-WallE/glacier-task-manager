@@ -61,4 +61,11 @@ const logoutUser = (req, res) => {
     });
 };
 
-module.exports = { registerUser, loginUser, logoutUser };
+const getCurrentUser = (req, res) => {
+    if (req.isAuthenticated() && req.user) {
+        return res.status(200).json({ user: req.user });
+    }
+    res.status(401).json({ error: 'Not authenticated' });
+};
+
+module.exports = { registerUser, loginUser, logoutUser, getCurrentUser };

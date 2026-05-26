@@ -28,12 +28,16 @@ app.use(express.json());
 
 
 app.use(session({
+    store: new pgSession({
+        pool: pool,
+        tableName: 'session'
+    }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: true,      
-        sameSite: 'none',  
+        secure: true,
+        sameSite: 'none',
         maxAge: 24 * 60 * 60 * 1000
     }
 }));
