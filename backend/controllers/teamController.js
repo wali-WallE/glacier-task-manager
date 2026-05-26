@@ -89,8 +89,8 @@ const addTeamMember = async (req, res) => {
 
         res.status(200).json({ message: 'Member added successfully!' });
     } catch (error) {
-        console.error('Error adding team member:', error);
-        res.status(500).json({ error: 'Server error while adding member' });
+        console.error('Error creating team:', error);
+        res.status(500).json({ error: `DB Error: ${error.message}` });
     }
 };
 
