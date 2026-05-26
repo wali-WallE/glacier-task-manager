@@ -5,13 +5,11 @@ import api from '../api/axios';
 const Dashboard = () => {
     const navigate = useNavigate();
 
-    // Data State
     const [teams, setTeams] = useState([]);
     const [selectedTeamId, setSelectedTeamId] = useState('');
     const [tasks, setTasks] = useState([]);
     const [teamMembers, setTeamMembers] = useState([]);
 
-    // UI State
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -20,7 +18,6 @@ const Dashboard = () => {
     const [statusMessage, setStatusMessage] = useState('');
     const [memberStatusMessage, setMemberStatusMessage] = useState('');
 
-    // Form State
     const [teamName, setTeamName] = useState('');
     const [teamDescription, setTeamDescription] = useState('');
     const [taskTitle, setTaskTitle] = useState('');
@@ -28,7 +25,6 @@ const Dashboard = () => {
     const [assignedTo, setAssignedTo] = useState('');
     const [newMemberEmail, setNewMemberEmail] = useState('');
 
-    // Editing State
     const [editingTask, setEditingTask] = useState(null);
 
     useEffect(() => { fetchTeams(); }, []);
