@@ -4,7 +4,10 @@ const passport = require('passport');
 
 const registerUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { name, username, fullName, email, password } = req.body;
+
+        const finalName = name || username || fullName || 'User';
+        const finalUsername = username || name || 'user';
         const userExists = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
         if (userExists.rows.length > 0) {
             return res.status(400).json({ error: 'User already exists with this email' });
@@ -17,7 +20,7 @@ const registerUser = async (req, res) => {
         );
         res.status(201).json({ message: 'User registered successfully!', user: newUser.rows[0] });
     } catch (error) {
-        console.error('Registration error:', error.message);
+        console.error("REGISTRATION ERROR DETECTED:", error);
         res.status(500).json({ error: 'Server error during registration' });
     }
 };
