@@ -45,6 +45,55 @@ const getUserTeams = async (req, res) => {
     }
 };
 
+const getTeamMembers = async (req, res) => {
+    const { teamId } = req.params;
+    try {
+        const result = await db.query(
+            `SELECT u.id, u.email AS username FROM users u 
+            JOIN team_members tm ON u.id = tm.user_id 
+            WHERE tm.team_id = $1`,
+            [teamId]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching team members:', error);
+        res.status(500).json({ error: 'Server error fetching members' });
+    }
+};
+
+const addTeamMember = async (req, res) => {
+    const { teamId } = req.params;
+    const { email } = req.body;
+
+    try {
+        const userResult = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: 'No user found with that email address.' });
+        }
+
+        const newUserId = userResult.rows[0].id;
+
+        const existingMember = await db.query(
+            'SELECT * FROM team_members WHERE team_id = $1 AND user_id = $2',
+            [teamId, newUserId]
+        );
+
+        if (existingMember.rows.length > 0) {
+            return res.status(400).json({ error: 'User is already a member of this team.' });
+        }
+
+        await db.query(
+            'INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, $3)',
+            [teamId, newUserId, 'member']
+        );
+
+        res.status(200).json({ message: 'Member added successfully!' });
+    } catch (error) {
+        console.error('Error adding team member:', error);
+        res.status(500).json({ error: 'Server error while adding member' });
+    }
+};
+
 module.exports = {
-    createTeam, getUserTeams
+    createTeam, getUserTeams, getTeamMembers, addTeamMember
 };

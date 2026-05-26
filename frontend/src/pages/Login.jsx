@@ -1,64 +1,31 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../api/axios';
 
 const Login = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = async (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setError('');
-
         try {
-            const response = await api.post('/auth/login', {
-                email,
-                password
-            });
-
-            console.log('Login Successful, Session Cookie Received:', response.data);
-
+            await api.post('/auth/login', { email, password });
             navigate('/dashboard');
-
-        } catch (err) {
-            console.error('Login failed:', err);
-            setError(err.response?.data?.error || 'Invalid credentials');
-        }
+        } catch (err) { alert('Invalid credentials'); }
     };
 
     return (
-        <div style={{ maxWidth: '400px', margin: '50px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-            <h2>Welcome Back</h2>
-
-            {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-
-            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <input
-                    type="email"
-                    placeholder="Email Address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    style={{ padding: '10px' }}
-                />
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    style={{ padding: '10px' }}
-                />
-                <button type="submit" style={{ padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                    Log In
-                </button>
-            </form>
-
-            <p style={{ marginTop: '15px', fontSize: '14px' }}>
-                Need an account? <span style={{ color: '#007bff', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => navigate('/register')}>Register here</span>
-            </p>
+        <div className="min-h-screen bg-[#EDE9E6] flex items-center justify-center p-4">
+            <div className="bg-white p-10 rounded-2xl shadow-xl border border-[#EDE9E6] w-full max-w-sm">
+                <h1 className="text-2xl font-semibold text-[#5C4F4A] mb-8">Glacier.</h1>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input type="email" placeholder="Email" onChange={(e) => setEmail(e.target.value)} required className="w-full px-4 py-3 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:ring-1 focus:ring-[#5C766D] outline-none" />
+                    <input type="password" placeholder="Password" onChange={(e) => setPassword(e.target.value)} required className="w-full px-4 py-3 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:ring-1 focus:ring-[#5C766D] outline-none" />
+                    <button type="submit" className="w-full bg-[#5C4F4A] text-white py-3 rounded-lg font-medium hover:bg-[#463c38] transition-all">Sign In</button>
+                </form>
+                <p className="mt-6 text-center text-sm text-[#5C4F4A]/60">Don't have an account? <Link to="/register" className="text-[#5C766D] font-medium">Register</Link></p>
+            </div>
         </div>
     );
 };
