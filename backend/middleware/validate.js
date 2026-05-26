@@ -12,6 +12,17 @@ const taskSchema = Joi.object({
     assigned_to: Joi.number().integer().allow('', null)
 });
 
+const registerSchema = Joi.object({
+    name: Joi.string().min(2).max(50).required(),
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required()
+});
+
+const loginSchema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().required()
+});
+
 const validateRequest = (schema) => {
     return (req, res, next) => {
         const { error } = schema.validate(req.body);
@@ -22,4 +33,4 @@ const validateRequest = (schema) => {
     };
 };
 
-module.exports = { validateRequest, teamSchema, taskSchema };
+module.exports = { validateRequest, teamSchema, taskSchema, registerSchema, loginSchema };
