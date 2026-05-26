@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createTeam } = require('../controllers/teamController');
+const { createTeam, getUserTeams } = require('../controllers/teamController');
 
 const isAuthenticated = (req, res, next) => {
     if (req.isAuthenticated()) {
@@ -10,5 +10,6 @@ const isAuthenticated = (req, res, next) => {
 };
 
 router.post('/', isAuthenticated, createTeam);
+router.get('/', isAuthenticated, getUserTeams);
 
 module.exports = router;

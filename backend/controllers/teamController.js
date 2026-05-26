@@ -29,6 +29,22 @@ const createTeam = async (req, res) => {
     }
 };
 
+const getUserTeams = async (req, res) => {
+    const userId = req.user.id;
+    try {
+        const result = await db.query(
+            `SELECT t.* FROM teams t 
+             JOIN team_members tm ON t.id = tm.team_id 
+             WHERE tm.user_id = $1 ORDER BY t.created_at DESC`,
+            [userId]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching user teams:', error);
+        res.status(500).json({ error: 'Server error while fetching teams' });
+    }
+};
+
 module.exports = {
-    createTeam
+    createTeam, getUserTeams
 };

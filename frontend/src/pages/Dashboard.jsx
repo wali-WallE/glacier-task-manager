@@ -1,13 +1,49 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 
 const Dashboard = () => {
     const navigate = useNavigate();
 
+    const [teams, setTeams] = useState([]);
+    const [selectedTeamId, setSelectedTeamId] = useState('');
+    const [tasks, setTasks] = useState([]);
+
     const [teamName, setTeamName] = useState('');
     const [teamDescription, setTeamDescription] = useState('');
+    const [taskTitle, setTaskTitle] = useState('');
+    const [taskDescription, setTaskDescription] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
+
+    useEffect(() => {
+        fetchTeams();
+    }, []);
+
+    useEffect(() => {
+        if (selectedTeamId) {
+            fetchTasks(selectedTeamId);
+        } else {
+            setTasks([]);
+        }
+    }, [selectedTeamId]);
+
+    const fetchTeams = async () => {
+        try {
+            const response = await api.get('/teams');
+            setTeams(response.data || []);
+        } catch (err) {
+            console.error('Failed to fetch teams:', err);
+        }
+    };
+
+    const fetchTasks = async (teamId) => {
+        try {
+            const response = await api.get(`/tasks/team/${teamId}`);
+            setTasks(response.data || []);
+        } catch (err) {
+            console.error('Failed to fetch tasks:', err);
+        }
+    };
 
     const handleLogout = async () => {
         try {
@@ -21,65 +57,121 @@ const Dashboard = () => {
     const handleCreateTeam = async (e) => {
         e.preventDefault();
         setStatusMessage('');
-
         try {
-            const response = await api.post('/teams', {
-                name: teamName,
-                description: teamDescription
-            });
-
-            setStatusMessage(`Success! Team "${response.data.team.name}" was created.`);
+            const response = await api.post('/teams', { name: teamName, description: teamDescription });
+            setStatusMessage(`Success! Team "${response.data.team.name}" created.`);
             setTeamName('');
             setTeamDescription('');
-
+            fetchTeams();
         } catch (err) {
-            console.error('Failed to create team:', err);
             setStatusMessage(err.response?.data?.error || 'Error creating team');
         }
     };
 
+    const handleCreateTask = async (e) => {
+        e.preventDefault();
+        if (!selectedTeamId) return alert('Please select a team first!');
+        try {
+            await api.post('/tasks', { title: taskTitle, description: taskDescription, team_id: selectedTeamId });
+            setTaskTitle('');
+            setTaskDescription('');
+            fetchTasks(selectedTeamId);
+        } catch (err) {
+            console.error('Error creating task:', err);
+        }
+    };
+
+    // NEW: Function to delete a task
+    const handleDeleteTask = async (taskId) => {
+        try {
+            await api.delete(`/tasks/${taskId}`);
+            fetchTasks(selectedTeamId); // Refresh the board automatically
+        } catch (err) {
+            console.error('Error deleting task:', err);
+        }
+    };
+
+    // NEW: Function to update task status
+    const handleUpdateStatus = async (task, newStatus) => {
+        try {
+            await api.put(`/tasks/${task.id}`, { ...task, status: newStatus });
+            fetchTasks(selectedTeamId); // Refresh the board automatically
+        } catch (err) {
+            console.error('Error updating task:', err);
+        }
+    };
+
     return (
-        <div style={{ maxWidth: '800px', margin: '50px auto', padding: '20px' }}>
+        <div style={{ maxWidth: '1000px', margin: '30px auto', padding: '20px', fontFamily: 'sans-serif' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eee', paddingBottom: '20px', marginBottom: '20px' }}>
-                <h2>Glacier Task Dashboard</h2>
-                <button
-                    onClick={handleLogout}
-                    style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                    Log Out
-                </button>
+                <h2>Glacier Task Workspace</h2>
+                <button onClick={handleLogout} style={{ padding: '8px 16px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Log Out</button>
             </div>
 
-            {/* New Team Creation Section */}
-            <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '20px' }}>
-                <h3>Create a New Team</h3>
+            {statusMessage && (
+                <div style={{ padding: '10px', marginBottom: '15px', backgroundColor: '#e2f0d9', color: '#385723', borderRadius: '4px' }}>{statusMessage}</div>
+            )}
 
-                {statusMessage && (
-                    <div style={{ padding: '10px', marginBottom: '15px', backgroundColor: statusMessage.includes('Success') ? '#d4edda' : '#f8d7da', color: statusMessage.includes('Success') ? '#155724' : '#721c24', borderRadius: '4px' }}>
-                        {statusMessage}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '30px' }}>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #ddd' }}>
+                        <h3>Select Workspace</h3>
+                        <select value={selectedTeamId} onChange={(e) => setSelectedTeamId(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '4px' }}>
+                            <option value="">-- Choose a Team --</option>
+                            {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                        </select>
                     </div>
-                )}
 
-                <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <input
-                        type="text"
-                        placeholder="Team Name (e.g., Frontend Ninjas)"
-                        value={teamName}
-                        onChange={(e) => setTeamName(e.target.value)}
-                        required
-                        style={{ padding: '10px' }}
-                    />
-                    <textarea
-                        placeholder="What is this team working on?"
-                        value={teamDescription}
-                        onChange={(e) => setTeamDescription(e.target.value)}
-                        rows="3"
-                        style={{ padding: '10px', resize: 'vertical' }}
-                    />
-                    <button type="submit" style={{ padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', alignSelf: 'flex-start' }}>
-                        Create Team
-                    </button>
-                </form>
+                    <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #ddd' }}>
+                        <h3>Create a Team</h3>
+                        <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <input type="text" placeholder="Team Name" value={teamName} onChange={(e) => setTeamName(e.target.value)} required style={{ padding: '8px' }} />
+                            <textarea placeholder="Description" value={teamDescription} onChange={(e) => setTeamDescription(e.target.value)} rows="2" style={{ padding: '8px' }} />
+                            <button type="submit" style={{ padding: '8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Create</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div style={{ padding: '20px', backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #ddd' }}>
+                    {selectedTeamId ? (
+                        <div>
+                            <h3>Team Tasks</h3>
+                            <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+                                <input type="text" placeholder="New Task Title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required style={{ flex: 2, padding: '8px' }} />
+                                <input type="text" placeholder="Task details..." value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} style={{ flex: 3, padding: '8px' }} />
+                                <button type="submit" style={{ flex: 1, backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Task</button>
+                            </form>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {tasks.length === 0 ? <p style={{ color: '#777' }}>No tasks found for this team.</p> : null}
+                                {tasks.map(task => (
+                                    <div key={task.id} style={{ padding: '15px', backgroundColor: task.status === 'completed' ? '#f8f9fa' : '#f1f3f5', borderRadius: '6px', borderLeft: `5px solid ${task.status === 'completed' ? '#28a745' : '#007bff'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: task.status === 'completed' ? 0.7 : 1 }}>
+                                        <div>
+                                            <h4 style={{ margin: '0 0 5px 0', textDecoration: task.status === 'completed' ? 'line-through' : 'none' }}>{task.title}</h4>
+                                            <p style={{ margin: 0, fontSize: '14px', color: '#555' }}>{task.description}</p>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#e9ecef', borderRadius: '12px', fontWeight: 'bold', color: '#495057' }}>
+                                                {task.status.toUpperCase()}
+                                            </span>
+                                            {/* Action Buttons */}
+                                            {task.status !== 'completed' && (
+                                                <button onClick={() => handleUpdateStatus(task, 'completed')} style={{ padding: '4px 8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✓</button>
+                                            )}
+                                            <button onClick={() => handleDeleteTask(task.id)} style={{ padding: '4px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✕</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '50px 0', color: '#777' }}>
+                            <h3>No Team Selected</h3>
+                            <p>Select a team from the sidebar dropdown or create a new one to view and manage tasks.</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

@@ -6,6 +6,7 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const passport = require('passport');
 const teamRoutes = require('./routes/teamRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 
 const pool = require('./db');
 
@@ -37,6 +38,7 @@ app.use(passport.session());
 // --- ROUTES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/teams', teamRoutes);
+app.use('/api/tasks', taskRoutes);
 
 app.get('/', (req, res) => {
     res.send('Glacier Task Manager API is officially running!');
