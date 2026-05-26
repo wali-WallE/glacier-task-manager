@@ -92,7 +92,7 @@ const Dashboard = () => {
                 await api.post('/tasks', {
                     title: taskTitle,
                     description: taskDescription,
-                    team_id: selectedTeamId, // The backend might be expecting teamId instead
+                    team_id: String(selectedTeamId),
                     assigned_to: assignedTo ? parseInt(assignedTo) : null
                 });
             }
@@ -100,7 +100,6 @@ const Dashboard = () => {
             fetchTasks(selectedTeamId);
         } catch (err) {
             console.error(err);
-            // This will pop up the exact error message sent from your backend!
             alert(`Backend Error: ${err.response?.data?.error || err.response?.data?.message || 'Check console'}`);
         }
     };
