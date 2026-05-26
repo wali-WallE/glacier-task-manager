@@ -45,6 +45,22 @@ const getUserTeams = async (req, res) => {
     }
 };
 
+const getTeamMembers = async (req, res) => {
+    const { teamId } = req.params;
+    try {
+        const result = await db.query(
+            `SELECT u.id, u.email AS username FROM users u 
+            JOIN team_members tm ON u.id = tm.user_id 
+            WHERE tm.team_id = $1`,
+            [teamId]
+        );
+        res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching team members:', error);
+        res.status(500).json({ error: 'Server error fetching members' });
+    }
+};
+
 module.exports = {
-    createTeam, getUserTeams
+    createTeam, getUserTeams, getTeamMembers
 };

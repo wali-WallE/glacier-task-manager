@@ -8,22 +8,27 @@ const Dashboard = () => {
     const [teams, setTeams] = useState([]);
     const [selectedTeamId, setSelectedTeamId] = useState('');
     const [tasks, setTasks] = useState([]);
+    const [teamMembers, setTeamMembers] = useState([]); // NEW: State for members
 
     const [teamName, setTeamName] = useState('');
     const [teamDescription, setTeamDescription] = useState('');
     const [taskTitle, setTaskTitle] = useState('');
     const [taskDescription, setTaskDescription] = useState('');
+    const [assignedTo, setAssignedTo] = useState(''); // NEW: State for assignment
     const [statusMessage, setStatusMessage] = useState('');
 
     useEffect(() => {
         fetchTeams();
     }, []);
 
+    // When a team is selected, fetch both its tasks AND its members
     useEffect(() => {
         if (selectedTeamId) {
             fetchTasks(selectedTeamId);
+            fetchTeamMembers(selectedTeamId);
         } else {
             setTasks([]);
+            setTeamMembers([]);
         }
     }, [selectedTeamId]);
 
@@ -42,6 +47,16 @@ const Dashboard = () => {
             setTasks(response.data || []);
         } catch (err) {
             console.error('Failed to fetch tasks:', err);
+        }
+    };
+
+    // NEW: Fetch members from our new route
+    const fetchTeamMembers = async (teamId) => {
+        try {
+            const response = await api.get(`/teams/${teamId}/members`);
+            setTeamMembers(response.data || []);
+        } catch (err) {
+            console.error('Failed to fetch members:', err);
         }
     };
 
@@ -72,33 +87,45 @@ const Dashboard = () => {
         e.preventDefault();
         if (!selectedTeamId) return alert('Please select a team first!');
         try {
-            await api.post('/tasks', { title: taskTitle, description: taskDescription, team_id: selectedTeamId });
+            // Updated to include assigned_to
+            await api.post('/tasks', {
+                title: taskTitle,
+                description: taskDescription,
+                team_id: selectedTeamId,
+                assigned_to: assignedTo || null
+            });
             setTaskTitle('');
             setTaskDescription('');
+            setAssignedTo('');
             fetchTasks(selectedTeamId);
         } catch (err) {
             console.error('Error creating task:', err);
         }
     };
 
-    // NEW: Function to delete a task
     const handleDeleteTask = async (taskId) => {
         try {
             await api.delete(`/tasks/${taskId}`);
-            fetchTasks(selectedTeamId); // Refresh the board automatically
+            fetchTasks(selectedTeamId);
         } catch (err) {
             console.error('Error deleting task:', err);
         }
     };
 
-    // NEW: Function to update task status
     const handleUpdateStatus = async (task, newStatus) => {
         try {
             await api.put(`/tasks/${task.id}`, { ...task, status: newStatus });
-            fetchTasks(selectedTeamId); // Refresh the board automatically
+            fetchTasks(selectedTeamId);
         } catch (err) {
             console.error('Error updating task:', err);
         }
+    };
+
+    // Helper to find the username of the assignee
+    const getAssigneeName = (userId) => {
+        if (!userId) return 'Unassigned';
+        const member = teamMembers.find(m => m.id === userId);
+        return member ? member.username : 'Unknown';
     };
 
     return (
@@ -137,10 +164,19 @@ const Dashboard = () => {
                     {selectedTeamId ? (
                         <div>
                             <h3>Team Tasks</h3>
-                            <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                                <input type="text" placeholder="New Task Title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required style={{ flex: 2, padding: '8px' }} />
-                                <input type="text" placeholder="Task details..." value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} style={{ flex: 3, padding: '8px' }} />
-                                <button type="submit" style={{ flex: 1, backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add Task</button>
+                            <form onSubmit={handleCreateTask} style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                                <input type="text" placeholder="New Task Title" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required style={{ flex: 2, padding: '8px', minWidth: '150px' }} />
+                                <input type="text" placeholder="Task details..." value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} style={{ flex: 3, padding: '8px', minWidth: '200px' }} />
+
+                                {/* NEW: Assignee Dropdown */}
+                                <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} style={{ flex: 1, padding: '8px', minWidth: '120px' }}>
+                                    <option value="">Unassigned</option>
+                                    {teamMembers.map(member => (
+                                        <option key={member.id} value={member.id}>{member.username}</option>
+                                    ))}
+                                </select>
+
+                                <button type="submit" style={{ flex: 1, backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', minWidth: '100px' }}>Add Task</button>
                             </form>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -149,13 +185,14 @@ const Dashboard = () => {
                                     <div key={task.id} style={{ padding: '15px', backgroundColor: task.status === 'completed' ? '#f8f9fa' : '#f1f3f5', borderRadius: '6px', borderLeft: `5px solid ${task.status === 'completed' ? '#28a745' : '#007bff'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: task.status === 'completed' ? 0.7 : 1 }}>
                                         <div>
                                             <h4 style={{ margin: '0 0 5px 0', textDecoration: task.status === 'completed' ? 'line-through' : 'none' }}>{task.title}</h4>
-                                            <p style={{ margin: 0, fontSize: '14px', color: '#555' }}>{task.description}</p>
+                                            <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#555' }}>{task.description}</p>
+                                            {/* NEW: Display who is assigned */}
+                                            <small style={{ color: '#888', fontWeight: 'bold' }}>👤 {getAssigneeName(task.assigned_to)}</small>
                                         </div>
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                             <span style={{ fontSize: '12px', padding: '4px 8px', backgroundColor: '#e9ecef', borderRadius: '12px', fontWeight: 'bold', color: '#495057' }}>
                                                 {task.status.toUpperCase()}
                                             </span>
-                                            {/* Action Buttons */}
                                             {task.status !== 'completed' && (
                                                 <button onClick={() => handleUpdateStatus(task, 'completed')} style={{ padding: '4px 8px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>✓</button>
                                             )}
