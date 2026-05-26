@@ -14,21 +14,28 @@ const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 
-app.use(cors({ origin: 'http://localhost:5173', credentials: true })); // React 
+app.set('trust proxy', 1);
+
+app.use(cors({
+    origin: [
+        'http://localhost:5173', // Keep local for testing
+        'http://localhost:3000',
+        'glacier-task-manager-gilt.vercel.app' // ⚠️ PASTE YOUR ACTUAL VERCEL URL HERE
+    ],
+    credentials: true
+})); // React 
 app.use(express.json());
 
 
 app.use(session({
-    store: new pgSession({
-        pool: pool,
-        tableName: 'session'
-    }),
-    secret: process.env.SESSION_SECRET || 'glacier_super_secret_key',
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    // Add these specific cookie settings for production
     cookie: {
-        maxAge: 30 * 24 * 60 * 60 * 1000, 
-        httpOnly: true 
+        secure: process.env.NODE_ENV === 'production', // true on Render
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // required for cross-domain
+        maxAge: 24 * 60 * 60 * 1000 // 1 day
     }
 }));
 
