@@ -8,7 +8,8 @@ const teamSchema = Joi.object({
 const taskSchema = Joi.object({
     title: Joi.string().min(3).max(100).required(),
     description: Joi.string().allow('', null),
-    team_id: Joi.string().uuid().required(),
+    // DITU'S FIX: Removed .uuid() to accept standard integer/string IDs!
+    team_id: Joi.alternatives().try(Joi.string(), Joi.number().integer()).required(),
     assigned_to: Joi.number().integer().allow('', null)
 });
 
@@ -29,7 +30,7 @@ const validateRequest = (schema) => {
         if (error) {
             return res.status(400).json({ error: error.details[0].message });
         }
-        next(); 
+        next();
     };
 };
 
