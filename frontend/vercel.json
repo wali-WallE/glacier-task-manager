@@ -1,8 +1,12 @@
 {
     "rewrites": [
         {
-            "source": "/api/:path*",
+            "source": "/api/(.*)",
             "destination": "https://glacier-task-manager.onrender.com/api/:path*"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ]
 }

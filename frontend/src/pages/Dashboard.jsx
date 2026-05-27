@@ -25,6 +25,8 @@ const Dashboard = () => {
     const [taskTitle, setTaskTitle] = useState('');
     const [taskDescription, setTaskDescription] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
+
+    const [newMemberEmail, setNewMemberEmail] = useState('');
     const [dueDate, setDueDate] = useState('');
 
     const [editingTask, setEditingTask] = useState(null);
