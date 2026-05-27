@@ -9,7 +9,6 @@ const teamRoutes = require('./routes/teamRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 
 const pool = require('./db');
-
 const authRoutes = require('./routes/authRoutes');
 
 const app = express();
@@ -18,14 +17,16 @@ app.set('trust proxy', 1);
 
 app.use(cors({
     origin: [
-        'http://localhost:5173', 
+        'http://localhost:5173',
         'http://localhost:3000',
         'https://glacier-task-manager-gilt.vercel.app'
     ],
     credentials: true
-})); // React 
+}));
+
 app.use(express.json());
 
+const isProduction = process.env.NODE_ENV === 'production';
 
 app.use(session({
     store: new pgSession({
@@ -36,8 +37,8 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: true,
-        sameSite: 'none',
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000
     }
 }));

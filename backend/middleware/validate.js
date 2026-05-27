@@ -9,7 +9,8 @@ const taskSchema = Joi.object({
     title: Joi.string().min(3).max(100).required(),
     description: Joi.string().allow('', null),
     team_id: Joi.alternatives().try(Joi.string(), Joi.number().integer()).required(),
-    assigned_to: Joi.number().integer().allow('', null)
+    assigned_to: Joi.number().integer().allow('', null),
+    due_date: Joi.date().allow('', null)
 });
 
 const registerSchema = Joi.object({
