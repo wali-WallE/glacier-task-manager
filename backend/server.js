@@ -29,10 +29,9 @@ app.use(express.json());
 const isProduction = process.env.NODE_ENV === 'production';
 
 app.use(session({
-    store: new pgSession({
-        pool: pool,
-        tableName: 'session'
-    }),
+    store: process.env.NODE_ENV === 'production'
+        ? new pgSession({ pool: pool, tableName: 'session' })
+        : new session.MemoryStore(),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,

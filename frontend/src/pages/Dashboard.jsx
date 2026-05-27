@@ -47,7 +47,12 @@ const Dashboard = () => {
         try {
             const response = await api.get('/teams');
             setTeams(response.data || []);
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            console.error(err);
+            if (err.response?.status === 401) {
+                navigate('/login');
+            }
+        }
     };
 
     const fetchTasks = async (teamId) => {
@@ -342,7 +347,7 @@ const Dashboard = () => {
                                         <div className="flex items-center gap-3 mb-1">
                                             <h4 className={`text-base font-semibold text-[#5C4F4A] ${task.status === 'completed' ? 'line-through text-[#5C4F4A]/50' : ''}`}>{task.title}</h4>
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wider ${task.status === 'completed' ? 'bg-[#EDE9E6] text-[#5C4F4A]/60' : 'bg-[#5C766D]/10 text-[#5C766D]'}`}>
-                                                {task.status.toUpperCase()}
+                                                {(task.status || 'PENDING').toUpperCase()}
                                             </span>
                                             {renderDueDateBadge(task.due_date, task.status)}
                                         </div>
