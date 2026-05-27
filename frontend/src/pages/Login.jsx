@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 
 const Login = () => {
@@ -11,8 +12,15 @@ const Login = () => {
         e.preventDefault();
         try {
             await api.post('/auth/login', { email, password });
-            navigate('/dashboard');
-        } catch (err) { alert('Invalid credentials'); }
+
+            toast.success('Welcome back!');
+            setTimeout(() => {
+                navigate('/dashboard');
+            }, 1000);
+
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Invalid credentials');
+        }
     };
 
     return (

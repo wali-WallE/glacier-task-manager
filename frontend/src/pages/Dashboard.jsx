@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 
 const Dashboard = () => {
@@ -17,13 +18,14 @@ const Dashboard = () => {
     const [filterAssignee, setFilterAssignee] = useState('');
     const [statusMessage, setStatusMessage] = useState('');
     const [memberStatusMessage, setMemberStatusMessage] = useState('');
+    const [showCompleted, setShowCompleted] = useState(false);
 
     const [teamName, setTeamName] = useState('');
     const [teamDescription, setTeamDescription] = useState('');
     const [taskTitle, setTaskTitle] = useState('');
     const [taskDescription, setTaskDescription] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
-    const [newMemberEmail, setNewMemberEmail] = useState('');
+    const [dueDate, setDueDate] = useState('');
 
     const [editingTask, setEditingTask] = useState(null);
 
@@ -63,18 +65,32 @@ const Dashboard = () => {
     const handleLogout = async () => {
         try {
             await api.post('/auth/logout');
+            toast.success('Logged out successfully');
             navigate('/login');
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            toast.error('Failed to log out');
+        }
     };
 
     const handleCreateTeam = async (e) => {
         e.preventDefault();
-        setStatusMessage('');
         try {
             const response = await api.post('/teams', { name: teamName, description: teamDescription });
             setStatusMessage(`Workspace "${response.data.team.name}" established.`);
             setTeamName(''); setTeamDescription(''); fetchTeams();
         } catch (err) { setStatusMessage(err.response?.data?.error || 'Error creating team'); }
+    };
+
+    const handleDeleteTeam = async () => {
+        if (!window.confirm('Are you absolutely sure you want to delete this workspace and all its tasks? This cannot be undone.')) return;
+        try {
+            await api.delete(`/teams/${selectedTeamId}`);
+            toast.success('Workspace permanently deleted');
+            setSelectedTeamId('');
+            fetchTeams();
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to delete workspace');
+        }
     };
 
     const handleSubmitTask = async (e) => {
@@ -86,27 +102,29 @@ const Dashboard = () => {
                     ...editingTask,
                     title: taskTitle,
                     description: taskDescription,
-                    assigned_to: assignedTo ? parseInt(assignedTo) : null
+                    assigned_to: assignedTo ? parseInt(assignedTo) : null,
+                    due_date: dueDate || null // DITU'S ADDITION
                 });
+                toast.success('Task updated successfully!');
             } else {
                 await api.post('/tasks', {
                     title: taskTitle,
                     description: taskDescription,
                     team_id: String(selectedTeamId),
-                    assigned_to: assignedTo ? parseInt(assignedTo) : null
+                    assigned_to: assignedTo ? parseInt(assignedTo) : null,
+                    due_date: dueDate || null // DITU'S ADDITION
                 });
+                toast.success('Task created successfully!');
             }
             closeTaskModal();
             fetchTasks(selectedTeamId);
         } catch (err) {
-            console.error(err);
-            alert(`Backend Error: ${err.response?.data?.error || err.response?.data?.message || 'Check console'}`);
+            toast.error(err.response?.data?.error || 'Error saving task');
         }
     };
 
     const handleAddMember = async (e) => {
         e.preventDefault();
-        setMemberStatusMessage('');
         try {
             await api.post(`/teams/${selectedTeamId}/members`, { email: newMemberEmail });
             setNewMemberEmail('');
@@ -118,14 +136,35 @@ const Dashboard = () => {
         }
     };
 
+    const handleRemoveMember = async (memberId) => {
+        if (!window.confirm('Remove this colleague from the workspace?')) return;
+        try {
+            await api.delete(`/teams/${selectedTeamId}/members/${memberId}`);
+            toast.success('Member removed');
+            fetchTeamMembers(selectedTeamId);
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to remove member');
+        }
+    };
+
     const handleDeleteTask = async (taskId) => {
-        try { await api.delete(`/tasks/${taskId}`); fetchTasks(selectedTeamId); }
-        catch (err) { console.error(err); }
+        try {
+            await api.delete(`/tasks/${taskId}`);
+            fetchTasks(selectedTeamId);
+            toast.success('Task deleted');
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Failed to delete task');
+        }
     };
 
     const handleQuickStatusUpdate = async (task, newStatus) => {
-        try { await api.put(`/tasks/${task.id}`, { ...task, status: newStatus }); fetchTasks(selectedTeamId); }
-        catch (err) { console.error(err); }
+        try {
+            await api.put(`/tasks/${task.id}`, { ...task, status: newStatus });
+            fetchTasks(selectedTeamId);
+            toast.success('Task marked as completed!');
+        } catch (err) {
+            toast.error('Failed to update status');
+        }
     };
 
     const openTaskModal = (task = null) => {
@@ -134,11 +173,13 @@ const Dashboard = () => {
             setTaskTitle(task.title);
             setTaskDescription(task.description || '');
             setAssignedTo(task.assigned_to || '');
+            setDueDate(task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '');
         } else {
             setEditingTask(null);
             setTaskTitle('');
             setTaskDescription('');
             setAssignedTo('');
+            setDueDate('');
         }
         setIsTaskModalOpen(true);
     };
@@ -149,6 +190,7 @@ const Dashboard = () => {
         setTaskTitle('');
         setTaskDescription('');
         setAssignedTo('');
+        setDueDate('');
     };
 
     const getAssigneeName = (userId) => {
@@ -157,21 +199,49 @@ const Dashboard = () => {
         return member ? member.username : 'Unknown';
     };
 
+    const renderDueDateBadge = (dateString, status) => {
+        if (!dateString) return null;
+
+        const date = new Date(dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const taskDate = new Date(date);
+        taskDate.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.ceil((taskDate - today) / (1000 * 60 * 60 * 24));
+
+        if (status === 'completed') {
+            return <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#EDE9E6] text-[#5C4F4A]/60">Done</span>;
+        }
+
+        if (diffDays < 0) {
+            return <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-100 text-red-600">OVERDUE</span>;
+        } else if (diffDays <= 1) {
+            return <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-600">DUE SOON</span>;
+        } else {
+            return <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#EDE9E6] text-[#5C4F4A]/70">{date.toLocaleDateString()}</span>;
+        }
+    };
+
     const filteredTasks = tasks.filter(task => {
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
         const matchesAssignee = filterAssignee ? task.assigned_to === parseInt(filterAssignee) : true;
-        return matchesSearch && matchesAssignee;
+        const matchesStatus = showCompleted ? true : task.status !== 'completed';
+        return matchesSearch && matchesAssignee && matchesStatus;
     });
 
     const filteredTeams = teams.filter(team =>
         team.name.toLowerCase().includes(teamSearchQuery.toLowerCase())
     );
 
+    const currentTeam = teams.find(t => t.id === selectedTeamId);
+    const isAdmin = currentTeam?.role === 'admin';
+
     return (
         <div className="flex h-screen bg-[#EDE9E6] text-[#5C4F4A] font-sans selection:bg-[#5C766D] selection:text-white">
 
-            {/* LEFT SIDEBAR: Earth/Sage Palette */}
+            {/* LEFT SIDEBAR */}
             <div className="w-1/3 max-w-sm bg-white border-r border-[#EDE9E6] p-8 flex flex-col h-full z-10">
                 <h1 className="text-2xl font-semibold text-[#5C4F4A] mb-8 tracking-tight shrink-0">Glacier.</h1>
 
@@ -183,24 +253,16 @@ const Dashboard = () => {
 
                 <div className="flex flex-col flex-1 min-h-0">
                     <h3 className="text-xs font-semibold text-[#5C4F4A]/60 uppercase tracking-widest mb-4 shrink-0">Workspaces</h3>
-
-                    <input
-                        type="text"
-                        placeholder="Filter workspaces..."
-                        value={teamSearchQuery}
-                        onChange={(e) => setTeamSearchQuery(e.target.value)}
-                        className="w-full px-4 py-2.5 mb-4 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:bg-white focus:ring-1 focus:ring-[#5C766D] focus:border-[#5C766D] outline-none transition-all shrink-0 placeholder-[#5C4F4A]/70"
-                    />
+                    <input type="text" placeholder="Filter workspaces..." value={teamSearchQuery} onChange={(e) => setTeamSearchQuery(e.target.value)} className="w-full px-4 py-2.5 mb-4 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:bg-white focus:ring-1 focus:ring-[#5C766D] focus:border-[#5C766D] outline-none transition-all shrink-0 placeholder-[#5C4F4A]/70" />
 
                     <div className="space-y-1 overflow-y-auto flex-1 pr-2 pb-4 scrollbar-hide">
                         {filteredTeams.length === 0 && <p className="text-[#5C4F4A]/50 text-sm">No workspaces found.</p>}
                         {filteredTeams.map(team => (
-                            <button
-                                key={team.id}
-                                onClick={() => setSelectedTeamId(team.id)}
-                                className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-all duration-200 ${selectedTeamId === team.id ? 'bg-[#5C766D] text-white shadow-md' : 'text-[#5C4F4A] hover:bg-[#EDE9E6]'}`}
-                            >
-                                {team.name}
+                            <button key={team.id} onClick={() => setSelectedTeamId(team.id)} className={`w-full text-left px-4 py-3 rounded-lg font-medium transition-all duration-200 ${selectedTeamId === team.id ? 'bg-[#5C766D] text-white shadow-md' : 'text-[#5C4F4A] hover:bg-[#EDE9E6]'}`}>
+                                <div className="flex justify-between items-center">
+                                    <span>{team.name}</span>
+                                    {team.role === 'admin' && <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Admin</span>}
+                                </div>
                             </button>
                         ))}
                     </div>
@@ -224,19 +286,19 @@ const Dashboard = () => {
 
                 {selectedTeamId ? (
                     <div className="max-w-5xl mx-auto w-full">
-
                         <div className="flex justify-between items-start mb-8">
                             <div>
-                                <h2 className="text-3xl font-semibold text-[#5C4F4A] tracking-tight mb-2">
-                                    {teams.find(t => t.id === selectedTeamId)?.name || 'Workspace Tasks'}
-                                </h2>
+                                <h2 className="text-3xl font-semibold text-[#5C4F4A] tracking-tight mb-2">{currentTeam?.name || 'Workspace Tasks'}</h2>
                                 <div className="flex items-center gap-2 text-sm text-[#5C4F4A]/70">
                                     <span className="font-medium">Members:</span>
                                     {teamMembers.length > 0 ? (
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap gap-2">
                                             {teamMembers.map(m => (
-                                                <span key={m.id} className="bg-[#EDE9E6] text-[#5C4F4A] px-2 py-0.5 rounded-md">
+                                                <span key={m.id} className="bg-[#EDE9E6] text-[#5C4F4A] px-2 py-0.5 rounded-md flex items-center gap-1">
                                                     {m.username}
+                                                    {isAdmin && m.role !== 'admin' && (
+                                                        <button onClick={() => handleRemoveMember(m.id)} className="text-[#C9996B] hover:text-[#a0744f] ml-1 font-bold" title="Remove Member">×</button>
+                                                    )}
                                                 </span>
                                             ))}
                                         </div>
@@ -245,14 +307,12 @@ const Dashboard = () => {
                                     )}
                                 </div>
                             </div>
-
                             <div className="flex gap-3">
-                                <button onClick={() => setIsMemberModalOpen(true)} className="bg-white border border-[#EDE9E6] hover:border-[#C9996B] text-[#5C4F4A] px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm">
-                                    + Invite
-                                </button>
-                                <button onClick={() => openTaskModal()} className="bg-[#5C766D] hover:bg-[#4a6159] text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">
-                                    New Task
-                                </button>
+                                {isAdmin && (
+                                    <button onClick={handleDeleteTeam} className="bg-white border border-[#C9996B] text-[#C9996B] hover:bg-[#C9996B]/10 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">Delete Workspace</button>
+                                )}
+                                <button onClick={() => setIsMemberModalOpen(true)} className="bg-white border border-[#EDE9E6] hover:border-[#C9996B] text-[#5C4F4A] px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm">+ Invite</button>
+                                <button onClick={() => openTaskModal()} className="bg-[#5C766D] hover:bg-[#4a6159] text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">New Task</button>
                             </div>
                         </div>
 
@@ -264,6 +324,9 @@ const Dashboard = () => {
                                     <option key={member.id} value={member.id}>{member.username}</option>
                                 ))}
                             </select>
+                            <button onClick={() => setShowCompleted(!showCompleted)} className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm border ${showCompleted ? 'bg-[#5C766D] text-white border-[#5C766D]' : 'bg-white text-[#5C4F4A] border-[#EDE9E6] hover:border-[#5C766D]'}`}>
+                                {showCompleted ? 'Hide Completed' : 'Show Completed'}
+                            </button>
                         </div>
 
                         <div className="space-y-3">
@@ -279,6 +342,7 @@ const Dashboard = () => {
                                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full tracking-wider ${task.status === 'completed' ? 'bg-[#EDE9E6] text-[#5C4F4A]/60' : 'bg-[#5C766D]/10 text-[#5C766D]'}`}>
                                                 {task.status.toUpperCase()}
                                             </span>
+                                            {renderDueDateBadge(task.due_date, task.status)}
                                         </div>
                                         <p className="text-[#5C4F4A]/70 text-sm mb-3 max-w-2xl">{task.description}</p>
                                         <span className="inline-flex items-center text-xs font-medium text-[#5C4F4A]/80 bg-[#EDE9E6]/80 px-2.5 py-1 rounded-md">
@@ -289,18 +353,13 @@ const Dashboard = () => {
                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {task.status !== 'completed' && (
                                             <>
-                                                <button onClick={() => openTaskModal(task)} className="p-2 text-[#5C4F4A]/60 hover:text-[#5C766D] bg-white hover:bg-[#5C766D]/10 rounded-lg transition-colors border border-transparent hover:border-[#5C766D]/20" title="Edit Task">
-                                                    ✎
-                                                </button>
-                                                <button onClick={() => handleQuickStatusUpdate(task, 'completed')} className="p-2 text-[#5C4F4A]/60 hover:text-[#5C766D] bg-white hover:bg-[#5C766D]/10 rounded-lg transition-colors border border-transparent hover:border-[#5C766D]/20" title="Mark Done">
-                                                    ✓
-                                                </button>
+                                                <button onClick={() => openTaskModal(task)} className="p-2 text-[#5C4F4A]/60 hover:text-[#5C766D] bg-white hover:bg-[#5C766D]/10 rounded-lg transition-colors border border-transparent hover:border-[#5C766D]/20" title="Edit Task">✎</button>
+                                                <button onClick={() => handleQuickStatusUpdate(task, 'completed')} className="p-2 text-[#5C4F4A]/60 hover:text-[#5C766D] bg-white hover:bg-[#5C766D]/10 rounded-lg transition-colors border border-transparent hover:border-[#5C766D]/20" title="Mark Done">✓</button>
                                             </>
                                         )}
-
-                                        <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-[#5C4F4A]/60 hover:text-[#C9996B] bg-white hover:bg-[#C9996B]/10 rounded-lg transition-colors border border-transparent hover:border-[#C9996B]/30" title="Delete">
-                                            ✕
-                                        </button>
+                                        {isAdmin && (
+                                            <button onClick={() => handleDeleteTask(task.id)} className="p-2 text-[#5C4F4A]/60 hover:text-[#C9996B] bg-white hover:bg-[#C9996B]/10 rounded-lg transition-colors border border-transparent hover:border-[#C9996B]/30" title="Delete">✕</button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -308,16 +367,14 @@ const Dashboard = () => {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-[#5C4F4A]/40">
-                        <div className="w-16 h-16 mb-6 rounded-2xl bg-[#EDE9E6] flex items-center justify-center">
-                            <span className="text-2xl text-[#5C4F4A]/30">⌘</span>
-                        </div>
+                        <div className="w-16 h-16 mb-6 rounded-2xl bg-[#EDE9E6] flex items-center justify-center"><span className="text-2xl text-[#5C4F4A]/30">⌘</span></div>
                         <h3 className="text-xl font-medium text-[#5C4F4A]/60 mb-2">No Workspace Selected</h3>
                         <p className="text-sm">Choose a workspace from the sidebar to begin.</p>
                     </div>
                 )}
             </div>
 
-            {/* TASK (CREATE/EDIT) MODAL */}
+            {/* TASK MODAL WITH DATE PICKER */}
             {isTaskModalOpen && (
                 <div className="fixed inset-0 bg-[#5C4F4A]/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md border border-[#EDE9E6]">
@@ -331,14 +388,21 @@ const Dashboard = () => {
                                 <label className="block text-xs font-semibold text-[#5C4F4A]/60 uppercase tracking-widest mb-1.5">Details</label>
                                 <textarea value={taskDescription} onChange={(e) => setTaskDescription(e.target.value)} rows="3" className="w-full px-4 py-2.5 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:bg-white focus:ring-1 focus:ring-[#5C766D] focus:border-[#5C766D] outline-none transition-all resize-none" />
                             </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-[#5C4F4A]/60 uppercase tracking-widest mb-1.5">Assignee</label>
-                                <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="w-full px-4 py-2.5 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:bg-white focus:ring-1 focus:ring-[#5C766D] focus:border-[#5C766D] outline-none transition-all text-[#5C4F4A]">
-                                    <option value="">Unassigned</option>
-                                    {teamMembers.map(member => (
-                                        <option key={member.id} value={member.id}>{member.username}</option>
-                                    ))}
-                                </select>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-semibold text-[#5C4F4A]/60 uppercase tracking-widest mb-1.5">Assignee</label>
+                                    <select value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)} className="w-full px-4 py-2.5 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:bg-white focus:ring-1 focus:ring-[#5C766D] focus:border-[#5C766D] outline-none transition-all text-[#5C4F4A]">
+                                        <option value="">Unassigned</option>
+                                        {teamMembers.map(member => (
+                                            <option key={member.id} value={member.id}>{member.username}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {/* The Date Picker */}
+                                <div className="flex-1">
+                                    <label className="block text-xs font-semibold text-[#5C4F4A]/60 uppercase tracking-widest mb-1.5">Due Date</label>
+                                    <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full px-4 py-2.5 bg-[#EDE9E6]/30 border border-[#EDE9E6] rounded-lg text-sm focus:bg-white focus:ring-1 focus:ring-[#5C766D] focus:border-[#5C766D] outline-none transition-all text-[#5C4F4A]" />
+                                </div>
                             </div>
                             <div className="flex gap-3 pt-4">
                                 <button type="button" onClick={closeTaskModal} className="flex-1 bg-[#EDE9E6] hover:bg-[#dfd7d0] text-[#5C4F4A] font-medium py-2.5 px-4 rounded-lg transition-colors text-sm">Cancel</button>
@@ -355,13 +419,11 @@ const Dashboard = () => {
                     <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md border border-[#EDE9E6]">
                         <h2 className="text-xl font-semibold text-[#5C4F4A] mb-2">Invite Colleague</h2>
                         <p className="text-[#5C4F4A]/70 text-sm mb-6">Add a registered user to this workspace.</p>
-
                         {memberStatusMessage && (
                             <div className="mb-6 p-3 bg-[#C9996B]/10 text-[#5C4F4A] border border-[#C9996B]/30 rounded-lg text-sm font-medium">
                                 {memberStatusMessage}
                             </div>
                         )}
-
                         <form onSubmit={handleAddMember} className="space-y-4">
                             <div>
                                 <label className="block text-xs font-semibold text-[#5C4F4A]/60 uppercase tracking-widest mb-1.5">Email Address</label>

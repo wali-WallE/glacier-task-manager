@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 
 const Register = () => {
@@ -12,8 +13,15 @@ const Register = () => {
         e.preventDefault();
         try {
             await api.post('/auth/register', { name, email, password });
-            navigate('/login');
-        } catch (err) { alert('Registration failed'); }
+
+            toast.success('Account created successfully!');
+            setTimeout(() => {
+                navigate('/login');
+            }, 1500);
+
+        } catch (err) {
+            toast.error(err.response?.data?.error || 'Registration failed');
+        }
     };
 
     return (
