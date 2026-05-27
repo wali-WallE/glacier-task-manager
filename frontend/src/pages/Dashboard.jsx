@@ -313,7 +313,7 @@ const Dashboard = () => {
                                 {isAdmin && (
                                     <button onClick={handleDeleteTeam} className="bg-white border border-[#C9996B] text-[#C9996B] hover:bg-[#C9996B]/10 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">Delete Workspace</button>
                                 )}
-                                <button onClick={() => setIsMemberModalOpen(true)} className="bg-white border border-[#EDE9E6] hover:border-[#C9996B] text-[#5C4F4A] px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm">+ Invite</button>
+                                <button onClick={() => { setIsMemberModalOpen(true); setMemberStatusMessage(''); setNewMemberEmail(''); }} className="bg-white border border-[#EDE9E6] hover:border-[#C9996B] text-[#5C4F4A] px-4 py-2 rounded-lg text-sm font-medium transition-all shadow-sm">+ Invite</button>
                                 <button onClick={() => openTaskModal()} className="bg-[#5C766D] hover:bg-[#4a6159] text-white px-5 py-2 rounded-lg text-sm font-medium shadow-sm transition-all">New Task</button>
                             </div>
                         </div>
